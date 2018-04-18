@@ -2,7 +2,7 @@
 MILKY WAY EDF 
 
 This module calculates the EDF probabilities given the actions (Jr, Jz, Lz), 
-[Fe/H], [a/H], and age.
+[Fe/H], [a/Fe], and age.
 
 Example:
     Initialize as mwedf = MilkyWayEDF()
@@ -22,8 +22,8 @@ from scipy.integrate import quad
 class MilkyWayEDF:
     
     def  __init__(self,gp,sfr_par,discchem_par,halochem_par,thickdiscedf_par,
-                  thindiscedf_par,stellarhaloedf_par,Fhalo,solpos,maxeval,niter,
-                  norm=None):
+                  thindiscedf_par,stellarhaloedf_par,Fhalo,solpos,maxeval,
+                  niter,norm=None):
                       
         """ CLASS CONSTRUCTOR
 
@@ -33,16 +33,16 @@ class MilkyWayEDF:
                 tauF - thin disc star formation rate decay constant (Gyr, [scalar])
                 taus - early star formation growth timescale (Gyr, [scalar])
                 taum - age of the Galaxy (Gyr, [scalar]) 
-            discchem_par       - disc chemical evolution parameters [dict]
-                gZR    - ISM radial metallicity gradient at solar radius (dex/kpc, [scalar])
-                gZm    - ISM metallicity at birth of Galaxy (dex, [scalar])
-                tauZF  - ISM metallicity enrichment timescale (Gyr, [scalar])
-                aZ     - dependence of dispersion of ISM metallicities at each Lz on age (-, [scalar])
+            discchem_par - abundance parameters [dict]
                 LzF    - z-component of angular momentum at solar radius (km/s kpc, [scalar])
-                gaR    - ISM radial alpha abundance gradient at solar radius (dex/kpc, [scalar])
-                gam    - ISM alpha abundance at birth of Galaxy (dex, [scalar])
-                tauaF  - ISM alpha abundance enrichment timescale (Gyr, [scalar])
-                aalpha - dependence of dispersion of ISM alpha abundances at each Lz on age (-, [scalar])
+                gZm    - metallicity at birth of Galaxy (dex, [scalar])
+                gZLz   - Lz metallicity gradient at zero eccentricity (dex/(km/s kpc), [scalar])
+                gZJz   - Jz metallicity gradient (dex/(km/s kpc), [scalar])
+                aZ     - dispersion of metallicities at each Lz and Jz (-, [scalar])
+                gam    - alpha at birth of Galaxy (dex, [scalar])
+                gaLz   - Lz alpha gradient at zero eccentricity (dex/(km/s kpc), [scalar])
+                gaJz   - Jz alpha gradient (dex/(km/s kpc), [scalar])
+                aa     - dispersion of alpha at each Lz and Jz (-, [scalar])
             halochem_par       - halo chemical evolution parameters [dict]
                 bZ       - halo metallicity at scale action (dex, [scalar])
                 cZ       - dependence of halo metallicity on total action (dex/(km/s kpc), [scalar])
@@ -55,30 +55,26 @@ class MilkyWayEDF:
                 sigtau   - dispersion in halo ages at each total action (Gyr, [scalar])   
                 J0       - break action splitting inner and outer halo (km/s kpc, [scalar])
             thickdiscedf_par    - thick disc DF parameters    [dict]
-                Rsmin   - minimum scale radius (kpc, [scalar])
-                Rsmax   - maximum scale radius (kpc, [scalar])
                 Lz0     - scale angular momentum determining the suppression of retrograde orbits (kpc km/s, [scalar])       
-                sigmar0 - radial velocity dispersion at solar radius (km/s, [scalar]) 
-                sigmaz0 - vertical velocity dispersion at solar radius (km/s, [scalar]) 
+                Rsmin   - scale radius of oldest stars
+                Rsmax   - scale radius of youngest stars
+                sigmar0tau0 - radial velocity dispersion at solar radius (km/s, [scalar]) 
+                sigmaz0tau0 - vertical velocity dispersion at solar radius (km/s, [scalar]) 
                 zeta    - scale length of radial velocity dispersion as ratio of scale radius (-, [scalar])
-                eta     - part of scale length of vertical velocity dispersion as ratio of scale radius that depends on age (-,[scalar])
-                betar   - growth of radial velocity dispersions with age (-, [scalar])
-                betaz   - growth of vertical velocity dispersions with age (-, [scalar])
+                Rsigmar - R velocity dispersion scale length of the youngest stars at the Galactic center (kpc, [scalar])
+                Rsigmaz - z velocity dispersion scale length of the youngest stars at the Galactic center (kpc, [scalar])                
                 tausig  - parameter controlling velocity dispersions of stars born today (Gyr, [scalar])
-                tau0    - offset age (Gyr, [scalar])
-                taug    - gas disc growth timescale (Gyr, [scalar])
-           thindiscedf_par     - thin disc DF parameters [dict]
-                Rd      - scale radius of thick disc (kpc, [scalar])
+            thindiscedf_par     - thin disc DF parameters [dict]
                 Lz0     - scale angular momentum determining the suppression of retrograde orbits (kpc km/s, [scalar])        
-                sigmar0 - radial velocity dispersion at solar radius (km/s, [scalar]) 
-                sigmaz0 - vertical velocity dispersion at solar radius (km/s, [scalar]) 
-                zeta    - scale length of radial velocity dispersion as ratio of scale radius (-, [scalar])
-                eta     - part of scale length of vertical velocity dispersion as ratio of scale radius that depends on age (-,[scalar])
+                Rsmin   - scale radius of oldest stars
+                Rsmax   - scale radius of youngest stars
+                sigmar0tau0 - radial velocity dispersion at solar radius (km/s, [scalar]) 
+                sigmaz0tau0 - vertical velocity dispersion at solar radius (km/s, [scalar]) 
+                Rsigmar - R velocity dispersion scale length of the youngest stars at the Galactic center (kpc, [scalar])
+                Rsigmaz - z velocity dispersion scale length of the youngest stars at the Galactic center (kpc, [scalar])
                 betar   - growth of radial velocity dispersions with age
                 betaz   - growth of vertical velocity dispersions with age
                 tausig  - parameter controlling velocity dispersions of stars born today
-                tau0    - offset age
-                taug    - gas disc growth timescale
             stellarhalodf_par - stellar halo DF parameters [dict] STOPP
                 Jcore	   - action defining central core (kpc km/s, [scalar])
                 alpha	   - minimum inner halo slope (-, [scalar])
@@ -167,31 +163,31 @@ class MilkyWayEDF:
         
         return(kappa,nu,omega)
        
-    def CalcStellarAbundance(self,Lz,tau,par):
+    def CalcStellarAbundance(self,Lz,Jz,par):
         
-        """ STELLAR ELEMENTAL ABUNDANCE (IRON, ALPHA ETC.)
+        """ STELLAR ABUNDANCE
         
         Arguments:
             Lz  - z-component of angular momentum (km/s kpc, [vector])
-            tau - age (Gyr, [vector])
+            Jz  - vertical action (km/s kpc, [vector])
             par - stellar elemental abundance parameters [dict] 
-                gR   - stellar radial element gradient at solar radius (dex/kpc, [scalar])
-                gm   - stellar elemental abundance at birth of Galaxy (dex, [scalar])
-                tauF - stellar elemental abundance enrichment time scale (Gyr, [scalar])
-                LzF  - z-component of angular momentum at current solar radius (km/s kpc, [scalar])
+                LzF   - z-component of angular momentum at solar radius (km/s kpc, [scalar])
+                gm    - abundance at birth of Galaxy (dex, [scalar])
+                gLz   - Lz abundance gradient at zero eccentricity (dex/(km/s kpc), [scalar])
+                gJz   - Jz abundance gradient (dex/(km/s kpc), [scalar])      
         Returns:
-            Stellar elemental abundance (dex, [vector])
+            Stellar abundance (dex, [vector])
         """
         
         # Stellar elemental abundance-Lz relation for stars born now
-        g0 = par["gm"]*(1. - np.exp((-par["gR"]*(Lz-par["LzF"]))/par["gm"]))
+        g0 = par["gm"] + par["gLz"]*np.log(np.abs(Lz)/par["LzF"])
         
         # Mean stellar elemental abundance at each Lz
-        g = (g0-par["gm"])*np.tanh((par["taum"]-tau)/par["tauF"]) + par["gm"]  
-       
+        g  = g0 + par["gJz"]*np.log(np.abs(Jz)/par["LzF"])
+   
         return(g)
-        
-    ## CALCULATE MEALLICITY, ALPHA, OR AGE GIVEN THE TOTAL ACTION    
+                
+    ## CALCULATE METALLICITY, ALPHA, OR AGE GIVEN THE TOTAL ACTION    
     # Jt   - total actions
     # par  - dictionary of chemical evolution parameters 
         # b    - chemistry observable value at scale action
@@ -222,35 +218,6 @@ class MilkyWayEDF:
         """
     
         return(par["b"] + par["c"]*np.log(Jt/par["J0"]))
-        
-    def CalcScaleRadius(self,tau,par):
-        
-        """ SCALE RADIUS OF PSEUDO-ISOTHERMAL DF OF A COEVAL POPULATION    
-
-        Arguments:        
-            tau - age of coeval population (Gyr, [vector])
-            par - parameters for calculating scale radius [dict] 
-                Rsmax - maximum scale radius (kpc, [scalar])
-                Rsmin - minimum scale radius (kpc, [scalar])
-                taum  - age of the Galaxy (Gyr, [scalar])
-                tau0  - offset age (Gyr, [scalar])
-                taug  - gas disc growth timescale (Gyr, [scalar])
-
-        Returns:
-            Scale radius (kpc, [vector])
-
-        """
-        
-        tau = np.atleast_1d(tau)
-        
-        norm = 1./(np.arctan(par["tau0"]/par["taug"]) - \
-                np.arctan((par["tau0"]-par["taum"])/par["taug"]))
-        
-        Rs   = par["Rsmin"] + norm*(par["Rsmax"]-par["Rsmin"])*\
-                (np.arctan((par["tau0"]-tau)/par["taug"])-\
-                 np.arctan((par["tau0"]-par["taum"])/par["taug"]))
-        
-        return(Rs)                         
         
     def StarFormationRate(self,tau,par):
             
@@ -294,62 +261,60 @@ class MilkyWayEDF:
         
         return(1./val)
         
-    def DiscChemicalEvolutionModel(self,Lz,xi,par):
+    def DiscChemicalEvolutionModel(self,acts,xi,par):
         
         """ DISC CHEMICAL EVOLUTION MODEL
 
         Arguments:            
-            Lz  - z-component of angular momentum (km/s kpc, [vector])
+            acts - actions Jr, Jz, Lz (km/s kpc, km/s kpc, km/s kpc, [matrix])
             xi  - metallicity, alpha-abundance, age (dex,dex,Gyr, [matrix])
             par - disc chemical evolution parameters [dict]
-                gZR    - ISM radial metallicity gradient at solar radius (dex/kpc, [scalar])
-                gZm    - ISM metallicity at birth of Galaxy (dex, [scalar])
-                tauZF  - ISM metallicity enrichment timescale (Gyr, [scalar])
+                gZLz    - stellar radial metallicity gradient at solar radius (dex/kpc, [scalar])
+                gZm    - stellar metallicity at birth of Galaxy (dex, [scalar])
+                tauZF  - stellar metallicity enrichment timescale (Gyr, [scalar])
                 aZ     - dependence of dispersion of ISM metallicities at each Lz on age
                 LzF    - z-component of angular momentum at solar radius
-                gaR    - ISM radial alpha abundance gradient at solar radius (dex/kpc, [scalar])
-                gam    - ISM alpha abundance at birth of Galaxy (dex, [scalar])
-                tauaF  - ISM alpha abundance enrichment timescale (Gyr, [scalar])
+                gaLz    - stellar radial alpha abundance gradient at solar radius (dex/kpc, [scalar])
+                gam    - stellar alpha abundance at birth of Galaxy (dex, [scalar])
+                tauaF  - stellar alpha abundance enrichment timescale (Gyr, [scalar])
                 aalpha - dependence of dispersion of ISM alpha abundances at each Lz on age
     
         Returns:
-        Product of probabilities of [Fe/H] and [a/H] (-,[vector]).
+        Product of probabilities of [Fe/H] and [a/Fe] (-,[vector]).
         
         """
         
-        Lz = np.atleast_1d(Lz)
-        xi = np.atleast_2d(xi)
+        acts = np.atleast_2d(acts)
+        xi   = np.atleast_2d(xi)        
+        
+        # Actions
+        Jz  = acts[:,1]
+        Lz  = acts[:,2]
         
         # Chemistry variables
         feh = xi[:,0]
-        ah  = xi[:,1]
-        tau = xi[:,2] 
+        afe = xi[:,1]
         
         # Stellar metallicity probability
         
         # Create dictionary of stellar metallicity parameters
-        stellar_metallicity_par = dict(taum = par["taum"],
-                                       gR   = par["gZR"],
+        stellar_metallicity_par = dict(LzF  = par["LzF"],
                                        gm   = par["gZm"],
-                                       tauF = par["tauZF"],
-                                       LzF  = par["LzF"])
-        gZ   = self.CalcStellarAbundance(Lz,tau,stellar_metallicity_par)
-        sig0 = 0.05 
-        sigZ = sig0+par["aZ"]*tau
-        fZ   = np.exp(-(gZ-feh)**2./(2.*sigZ**2.))/np.sqrt(2.*np.pi*sigZ**2.)
+                                       gLz  = par["gZLz"],
+                                       gJz  = par["gZJz"])
+        gZ   = self.CalcStellarAbundance(Lz,Jz,stellar_metallicity_par)
+        fZ   = np.exp(-(gZ-feh)**2./(2.*par["aZ"]**2.))/np.sqrt(2.*np.pi*par["aZ"]**2.)
         
         # Stellar alpha probability
         
         # Create dictionary of stellar alpha parameters
-        stellar_alpha_par = dict(taum = par["taum"],
-                                 gR   = par["gaR"],
+        stellar_alpha_par = dict(LzF  = par["LzF"],
                                  gm   = par["gam"],
-                                 tauF = par["tauaF"],
-                                 LzF  = par["LzF"])
+                                 gLz  = par["gaLz"],
+                                 gJz  = par["gaJz"])
                     
-        ga   = self.CalcStellarAbundance(Lz,tau,stellar_alpha_par)       
-        siga = sig0+par["aalpha"]*tau
-        fa   = np.exp(-(ga-ah)**2./(2.*siga**2.))/np.sqrt(2.*np.pi*siga**2.)
+        ga   = self.CalcStellarAbundance(Lz,Jz,stellar_alpha_par)       
+        fa   = np.exp(-(ga-afe)**2./(2.*par["aalpha"]**2.))/np.sqrt(2.*np.pi*par["aalpha"]**2.)
         
         return(fZ*fa)
         
@@ -372,7 +337,7 @@ class MilkyWayEDF:
                 sigtau   - dispersion in halo ages at each total action (Gyr, [scalar])   
                 J0       - break action splitting inner and outer halo (km/s kpc, [scalar])
         Returns:
-            Product of probabilities of [Fe/H], [a/H], and age.
+            Product of probabilities of [Fe/H], [a/Fe], and age.
         """
 
         acts = np.atleast_2d(acts)
@@ -385,7 +350,7 @@ class MilkyWayEDF:
         
         # Chemistry variables
         feh = xi[:,0]
-        ah  = xi[:,1]
+        afe = xi[:,1]
         tau = xi[:,2] 
         
         # Total action
@@ -407,7 +372,7 @@ class MilkyWayEDF:
         ga = self.CalcHaloChemistry(Jt,halo_alpha_par)
                
         # Alpha probability
-        fa = np.exp(-(ga-ah)**2./(2.*par["sigalpha"]**2.))/np.sqrt(2.*np.pi*par["sigalpha"]**2.)
+        fa = np.exp(-(ga-afe)**2./(2.*par["sigalpha"]**2.))/np.sqrt(2.*np.pi*par["sigalpha"]**2.)
         
         # Age
         halo_age_par = dict(b  = par["btau"],
@@ -428,28 +393,25 @@ class MilkyWayEDF:
             acts - actions Jr, Jz, Lz (km/s kpc, km/s kpc, km/s kpc, [matrix])
             tau  - age of coeval population (Gyr, [vector])
             par  - pseudo-isothermal parameters  [dict]
-                Rsmin   - minimum scale radius (kpc, [scalar])
-                Rsmax   - maximum scale radius (kpc, [scalar])
                 Lz0     - scale angular momentum determining the suppression of retrograde orbits (kpc km/s, [scalar])       
-                sigmar0 - radial velocity dispersion at solar radius (km/s, [scalar]) 
-                sigmaz0 - vertical velocity dispersion at solar radius (km/s, [scalar]) 
-                zeta    - scale length of radial velocity dispersion as ratio of scale radius (-, [scalar])
-                eta     - part of scale length of vertical velocity dispersion as ratio of scale radius that depends on age (-,[scalar])
+                Rsmin   - scale radius of oldest stars
+                Rsmax   - scale radius of youngest stars
+                sigmar0tau0 - radial velocity dispersion at solar radius (km/s, [scalar]) 
+                sigmaz0tau0 - vertical velocity dispersion at solar radius (km/s, [scalar]) 
+                Rsigmar - R velocity dispersion scale length of the youngest stars at the Galactic center (kpc, [scalar])
+                Rsigmaz - z velocity dispersion scale length of the youngest stars at the Galactic center (kpc, [scalar])                
                 betar   - growth of radial velocity dispersions with age (-, [scalar])
                 betaz   - growth of vertical velocity dispersions with age (-, [scalar])
                 taum    - age of Galaxy (Gyr, [scalar])
                 tausig  - parameter controlling velocity dispersion of stars born today (Gyr, [scalar])
                 tauT    - age of thin-thick disc separation (Gyr, [scalar])                                                
-                tau0    - offset age (Gyr, [scalar])
-                taug    - gas disc growth timescale (Gyr, [scalar])
-
         Returns:    
         Pseudo-isothermal df probabilities.
         """
         
         acts = np.atleast_2d(acts)
-        tau  = np.atleast_1d(tau)
-        
+        tau  = np.atleast_1d(tau)        
+     
         # Actions
         Jr  = acts[:,0]
         Jz  = acts[:,1]
@@ -461,25 +423,24 @@ class MilkyWayEDF:
         # Radius of circular orbit
         Rc             = self.gp.Rcirc(L=Lz)
         
-        # Surface brightness scale radius
-        srpar = dict(Rsmax = par["Rsmax"],
-                     Rsmin = par["Rsmin"],
-                     taum  = par["taum"],
-                     tau0  = par["tau0"],
-                     taug  = par["taug"])
-        Rs = self.CalcScaleRadius(tau,srpar)
+        # Surface brightness
+        nfallmax = 2.
+        nfallmin = 1.
+        nfall    = nfallmax - (nfallmax-nfallmin)*tau/par["taum"]       
+        Rs       = par["Rsmin"]+(par["Rsmax"]-par["Rsmin"])*tau/par["taum"]  # Radial migration
+        Rsprime  = (nfall/(nfall-1))**(1/nfall)*Rs
+        fsb      = omega/kappa**2. * (nfall/Rsprime) * \
+                                     (Rc/Rsprime)**(nfall-1) * \
+                                     np.exp(-Rc**nfall/Rsprime**nfall)
+
+        # Velocity dispersion (heating with age)
+        sigmar0  = par["sigmar0tau0"]*((tau+par["tausig"])/(par["tauT"]+par["tausig"]))**par["betar"]
+        sigmaz0  = par["sigmaz0tau0"]*((tau+par["tausig"])/(par["tauT"]+par["tausig"]))**par["betaz"]
+        sigmar   = sigmar0*np.exp((self.solpos[0]-Rc)/par["Rsigmar"])
+        sigmaz   = sigmaz0*np.exp((self.solpos[0]-Rc)/par["Rsigmaz"])
         
-        # Velocity dispersion scale lengths
-        Rsigmar = par["zeta"]*Rs
-        Rsigmaz = (par["zeta"]+par["eta"]*tau)*Rs
-
-        # Velocity dispersions
-        sigmar  = par["sigmar0"]*((tau+par["tausig"])/(par["tauT"]+par["tausig"]))**par["betar"]*np.exp((self.solpos[0]-Rc)/Rsigmar)
-        sigmaz  = par["sigmaz0"]*((tau+par["tausig"])/(par["tauT"]+par["tausig"]))**par["betaz"]*np.exp((self.solpos[0]-Rc)/Rsigmaz)
-
         # EDF probability        
         frot    = 1. + np.tanh(Lz/par["Lz0"])
-        fsb     = omega/(Rs**2.*kappa**2)*np.exp(-Rc/Rs)
         fsigmar = kappa/(sigmar**2)*np.exp(-kappa*Jr/sigmar**2.)
         fsigmaz = nu/(sigmaz**2)*np.exp(-nu*Jz/sigmaz**2.)
         prob    = 1./(8.*np.pi) * frot * fsb * fsigmar * fsigmaz  
@@ -492,7 +453,7 @@ class MilkyWayEDF:
     
         Arguments:        
             acts - actions Jr,Jz,Lz (km/s kpc, km/s kpc, km/s kpc, [matrix])
-            xi   - chemistry variables [Fe/H], [a/H], age (dex, dex, Gyr, [matrix])
+            xi   - chemistry variables [Fe/H], [a/Fe], age (dex, dex, Gyr, [matrix])
     
         Returns:
             Thick disc EDF probabilities.
@@ -500,20 +461,19 @@ class MilkyWayEDF:
         """
         
         # Copy objects
-        sfr_par            = self.sfr_par
-        discchem_par       = self.discchem_par
-        thickdiscedf_par   = self.thickdiscedf_par
+        sfr_par          = self.sfr_par
+        discchem_par     = self.discchem_par
+        thickdiscedf_par = self.thickdiscedf_par
         
         # Actions
         acts = np.atleast_2d(acts)
-        Lz   = acts[:,2]
         
         # Chemical parameters
         xi   = np.atleast_2d(xi)
         tau  = xi[:,2]
              
         # Disc chemical evolution model
-        edfprobdiscchem = self.DiscChemicalEvolutionModel(Lz,xi,discchem_par)
+        edfprobdiscchem = self.DiscChemicalEvolutionModel(acts,xi,discchem_par)
             
         # Thick disc EDF
         ftauthk        = self.StarFormationRate(tau,sfr_par)
@@ -530,7 +490,7 @@ class MilkyWayEDF:
     
         Arguments:        
             acts - actions Jr,Jz,Lz (km/s kpc, km/s kpc, km/s kpc, [matrix])
-            xi   - chemistry variables [Fe/H], [a/H], age (dex, dex, Gyr, [matrix])
+            xi   - chemistry variables [Fe/H], [a/Fe], age (dex, dex, Gyr, [matrix])
     
         Returns:
             Thin disc EDF probabilities.
@@ -538,20 +498,19 @@ class MilkyWayEDF:
         """
         
         # Copy objects
-        sfr_par            = self.sfr_par
-        discchem_par       = self.discchem_par
-        thindiscedf_par    = self.thindiscedf_par
+        sfr_par         = self.sfr_par
+        discchem_par    = self.discchem_par
+        thindiscedf_par = self.thindiscedf_par
         
         # Actions
         acts = np.atleast_2d(acts)
-        Lz   = acts[:,2]
         
         # Chemical parameters
         xi      = np.atleast_2d(xi)
         tau     = xi[:,2]
              
         # Disc chemical evolution model
-        edfprobdiscchem = self.DiscChemicalEvolutionModel(Lz,xi,discchem_par)
+        edfprobdiscchem = self.DiscChemicalEvolutionModel(acts,xi,discchem_par)
 
         # Thin disc EDF
         ftauthn        = self.StarFormationRate(tau,sfr_par)
@@ -568,7 +527,7 @@ class MilkyWayEDF:
     
         Arguments:        
             acts - actions Jr,Jz,Lz (km/s kpc, km/s kpc, km/s kpc, [matrix])
-            xi   - chemistry variables [Fe/H], [a/H], age (dex, dex, Gyr, [matrix])
+            xi   - chemistry variables [Fe/H], [a/Fe], age (dex, dex, Gyr, [matrix])
     
         Returns:
             Stellar halo EDF probabilities.
@@ -610,11 +569,7 @@ class MilkyWayEDF:
             Total disc normalization.
         
         """
-        
-        # Copy objects
-        discchem_par = self.discchem_par
-        sfr_par      = self.sfr_par
-        
+    
         # Transformed disc EDF
         @vegas.batchintegrand
         def TransDiscEDF(scaledstar):
@@ -624,7 +579,7 @@ class MilkyWayEDF:
              Jz  = Jscale*np.arctanh(scaledstar[:,1])            
              Lz  = Jscale*np.arctanh(scaledstar[:,2])
              feh = scaledstar[:,3]
-             ah  = scaledstar[:,4]
+             afe  = scaledstar[:,4]
         
              # Transformation Jacobian
              jac = Jscale**3./(1.-(np.tanh(Jr/Jscale))**2.)/\
@@ -633,26 +588,22 @@ class MilkyWayEDF:
                                                                                              
              # Create untransformed coordinate arrays
              acts = np.column_stack((Jr,Jz,Lz))
-             xi   = np.column_stack((feh,ah,scaledstar[:,5]))
+             xi   = np.column_stack((feh,afe,scaledstar[:,5]))
              
              return (jac*8.*np.pi**3.*(self.ThinDiscEDF(acts,xi)+self.ThickDiscEDF(acts,xi)))
         
         # Limits
-        sigZ   = discchem_par["aZ"]*sfr_par["taum"]
-        fehmin = discchem_par["gZm"] - 3.*sigZ
-        fehmax = discchem_par["gZm"]*\
-            (1-np.exp(discchem_par["gZR"]*discchem_par["LzF"]/discchem_par["gZm"]))
-        siga   = discchem_par["aalpha"]*sfr_par["taum"]
-        ahmin  = discchem_par["gam"] - 3.*siga
-        ahmax  = discchem_par["gam"]*\
-            (1-np.exp(discchem_par["gaR"]*discchem_par["LzF"]/discchem_par["gam"]))
+        fehmin = -2.0
+        fehmax = 1.0
+        afemin = -1.0
+        afemax = 1.0
         
         # Create integration object
         integ = vegas.Integrator([[0.,1.],
                                   [0.,1.],
                                   [0.,1.],
                                   [fehmin,fehmax],
-                                  [ahmin,ahmax],
+                                  [afemin,afemax],
                                   [0.,self.sfr_par["taum"]]])
                                   
         # Train integration object
@@ -663,7 +614,7 @@ class MilkyWayEDF:
         val    = result.mean
         err    = result.sdev
                
-        print("Disc EDF normalization and error: "+str(np.round(val,2))+"+/"+str(np.round(err,4)))
+        print("Disc EDF normalization and error: "+str(np.round(val,5))+"+/"+str(np.round(err,4)))
         pererr = err/val*100.
         print("% error = "+str(np.round(pererr,2)))
         
@@ -692,7 +643,7 @@ class MilkyWayEDF:
              Jz  = Jscale*np.arctanh(scaledstar[:,1])
              Lz  = Jscale*np.arctanh(scaledstar[:,2])
              feh = scaledstar[:,3]
-             ah  = scaledstar[:,4]
+             afe = scaledstar[:,4]
                                             
              jac = Jscale**3./(1.-(np.tanh(Jr/Jscale))**2.)/\
                               (1.-(np.tanh(Jz/Jscale))**2.)/\
@@ -700,14 +651,14 @@ class MilkyWayEDF:
                                                 
              # Create untransformed coordinate arrays
              acts = np.column_stack((Jr,Jz,Lz))
-             xi   = np.column_stack((feh,ah,scaledstar[:,5]))             
+             xi   = np.column_stack((feh,afe,scaledstar[:,5]))             
              return (jac*self.StellarHaloEDF(acts,xi))
         
         # y and age limits
         fehmax = -1.8+3.*halochem_par["sigZ"]
         fehmin = -2.0-3.*halochem_par["sigZ"]
-        ahmax  = -0.05+3.*halochem_par["sigalpha"]
-        ahmin  = -0.3-3.*halochem_par["sigalpha"]
+        afemax  = 0.3+3.*halochem_par["sigalpha"]
+        afemin  = 0.0-3.*halochem_par["sigalpha"]
         agemin = 10.0-3.*halochem_par["sigtau"]
         
         # Create integration object
@@ -715,7 +666,7 @@ class MilkyWayEDF:
                                   [0.,1.],
                                   [-1.,1.],
                                   [fehmin,fehmax],
-                                  [ahmin,ahmax],
+                                  [afemin,afemax],
                                   [agemin,self.sfr_par["taum"]]])
                                   
         # Train integration object
@@ -726,7 +677,7 @@ class MilkyWayEDF:
         val    = result.mean
         err    = result.sdev
                             
-        print("Stellar halo EDF normalization and error: "+str(np.round(val,2))+"+/"+str(np.round(err,4)))
+        print("Stellar halo EDF normalization and error: "+str(np.round(val,5))+"+/"+str(np.round(err,4)))
         pererr = err/val*100.
         print("% error = "+str(np.round(pererr,2)))
        
@@ -738,7 +689,7 @@ class MilkyWayEDF:
 
         Arguments:        
             acts - actions Jr,Jz,Lz, (km/s kpc, km/s kpc, km/s kpc, [matrix])
-            xi   - chemistry variables [Fe/H], [a/H], age (dex, dex, Gyr, [matrix])
+            xi   - chemistry variables [Fe/H], [a/Fe], age (dex, dex, Gyr, [matrix])
         Returns:
             Complete EDF probabilities (-, [vector])
 
