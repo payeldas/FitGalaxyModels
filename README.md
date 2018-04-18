@@ -21,11 +21,13 @@ This module collates a number of probability distribution functions that could f
 
 ## MilkyWayEDF.py 
 This module calculates the EDF probabilities given the actions (Jr, Jz, Lz), 
-[Fe/H], [a/Fe], and age.
+[M/H], [a/M], and age.
 
-Example:
+Initialize as
 
-    Initialize as mwedf = MilkyWayEDF()
+    mwedf = MilkyWayEDF()
     
-    Returns EDF prob = mwedf(coords)
+Return EDF probability 
+
+    prob = mwedf(coords)
     
